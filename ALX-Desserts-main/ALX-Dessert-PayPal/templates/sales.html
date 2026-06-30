@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALX Desserts - Reports</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .text-brand {
+            color: #d94f2a;
+        }
+
+        .bg-brand {
+            background-color: #d94f2a;
+        }
+
+        .bg-brand:hover {
+            background-color: #b03b1a;
+        }
+
+        /* Print/PDF: hide nav, action buttons, no-print elements */
+        @media print {
+
+            nav,
+            .no-print {
+                display: none !important;
+            }
+
+            body {
+                background: white !important;
+            }
+
+            .bg-white {
+                box-shadow: none !important;
+            }
+        }
+    </style>
+</head>
+
+<body class="text-gray-800">
+
+    <!-- Navbar -->
+    <nav class="bg-white shadow-sm border-b px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+        <div class="text-2xl font-bold text-brand flex items-center">
+            <img src="/static/images/alx_logo.png" alt="ALX Desserts Logo"
+                class="h-10 w-10 mr-2 rounded-full object-cover"> ALX Desserts Admin
+        </div>
+        <div class="space-x-2">
+            <a href="/"
+                class="text-gray-600 hover:text-brand hover:bg-orange-50 px-4 py-2 rounded-lg font-medium transition"><i
+                    class="fas fa-cash-register mr-1"></i> Point of Sale</a>
+            <a href="/inventory"
+                class="text-gray-600 hover:text-brand hover:bg-orange-50 px-4 py-2 rounded-lg font-medium transition"><i
+                    class="fas fa-boxes mr-1"></i> Inventory</a>
+            <a href="/sales"
+                class="bg-brand text-white px-4 py-2 rounded-lg font-medium shadow-sm hover:shadow transition"><i
+                    class="fas fa-chart-line mr-1"></i> Reports</a>
+            <a href="/archive"
+                class="text-gray-600 hover:text-brand hover:bg-orange-50 px-4 py-2 rounded-lg font-medium transition"><i
+                    class="fas fa-archive mr-1"></i> Archive</a>
+            <a href="/logout"
+                class="text-red-500 hover:bg-red-50 px-4 py-2 rounded-lg font-medium transition ml-4 border border-red-200"><i
+                    class="fas fa-sign-out-alt mr-1"></i> Logout</a>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto p-6">
+
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-800"><i class="fas fa-chart-pie text-brand mr-2"></i> Sales Reports
+            </h1>
+            <div class="flex gap-2">
+                <!-- Print / Export to PDF button — triggers browser print dialog -->
+                <button onclick="window.print()"
+                    class="bg-gray-700 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-gray-800 transition flex items-center">
+                    <i class="fas fa-print mr-2"></i> Print / PDF
+                </button>
+                <a href="/download_sales_csv"
+                    class="bg-green-600 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-green-700 transition flex items-center">
+                    <i class="fas fa-file-csv mr-2"></i> Download CSV
+                </a>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div
+            class="p-3 rounded-lg mb-6 text-sm {% if category == 'success' %}bg-green-50 text-green-700 border border-green-200{% else %}bg-red-50 text-red-700 border border-red-200{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-xl shadow-sm border flex items-center">
+                <div
+                    class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-2xl mr-4">
+                    <i class="fas fa-dollar-sign"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">Gross Sales</p>
+                    <h3 class="text-3xl font-bold text-gray-800">₱{{ "%.2f"|format(gross_sales) }}</h3>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border flex items-center">
+                <div
+                    class="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-2xl mr-4">
+                    <i class="fas fa-arrow-trend-up"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">Net Profit</p>
+                    <h3 class="text-3xl font-bold text-green-600">₱{{ "%.2f"|format(total_profit) }}</h3>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border flex items-center">
+                <div
+                    class="w-14 h-14 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 text-2xl mr-4">
+                    <i class="fas fa-receipt"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">Total Orders</p>
+                    <h3 class="text-3xl font-bold text-gray-800">{{ total_orders }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- VAT & Senior/PWD Discount KPIs -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white p-5 rounded-xl shadow-sm border flex items-center">
+                <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 text-xl mr-4">
+                    <i class="fas fa-percent"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">VAT Collected (12%)</p>
+                    <h3 class="text-2xl font-bold text-gray-800">₱{{ "%.2f"|format(total_vat_collected) }}</h3>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border flex items-center">
+                <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xl mr-4">
+                    <i class="fas fa-wheelchair"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">Senior/PWD Discounts Given</p>
+                    <h3 class="text-2xl font-bold text-blue-600">₱{{ "%.2f"|format(total_senior_pwd_discount) }}
+                        <span class="text-sm font-normal text-gray-400">({{ senior_pwd_order_count }} order{{ 's' if senior_pwd_order_count != 1 else '' }})</span>
+                    </h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment Breakdown -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white p-5 rounded-xl shadow-sm border flex items-center">
+                <div
+                    class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-xl mr-4">
+                    <i class="fas fa-money-bill-wave"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">Cash Sales</p>
+                    <h3 class="text-2xl font-bold text-gray-800">
+                        ₱{{ "%.2f"|format(orders | selectattr('payment_method', 'equalto', 'cash') |
+                        sum(attribute='total')) }}
+                    </h3>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border flex items-center">
+                <div class="w-12 h-12 rounded-full flex items-center justify-center text-white text-xl mr-4"
+                    style="background-color:#007AFF">
+                    <i class="fas fa-mobile-alt"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">GCash Sales</p>
+                    <h3 class="text-2xl font-bold text-gray-800">
+                        ₱{{ "%.2f"|format(orders | selectattr('payment_method', 'equalto', 'gcash') |
+                        sum(attribute='total')) }}
+                    </h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 no-print">
+            <div class="bg-white p-5 rounded-xl shadow-sm border flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-gray-700">Sales Trend</h3>
+                    <div class="flex items-center space-x-2">
+                        <select id="trendTimeframe" class="text-xs border-gray-300 rounded shadow-sm px-2 py-1 bg-gray-50 focus:ring-brand focus:border-brand outline-none">
+                            <option value="daily">Daily</option>
+                            <option value="monthly" selected>Monthly</option>
+                            <option value="yearly">Yearly</option>
+                        </select>
+                        <a id="downloadTrendCsv" href="/download_trend_csv/monthly" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded border shadow-sm transition" title="Download CSV">
+                            <i class="fas fa-download"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="relative h-64 flex-1">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border">
+                <h3 class="font-bold text-gray-700 mb-4 text-center">Top Products (Units Sold)</h3>
+                <div class="relative h-64">
+                    <canvas id="productsChart"></canvas>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border">
+                <h3 class="font-bold text-gray-700 mb-4 text-center">Payment Methods</h3>
+                <div class="relative h-64">
+                    <canvas id="paymentChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Monthly Sales Summary ────────────────────────────────────────
+             Powered by the monthly_summary list computed in sales_page().
+             Each entry has: label (e.g. "March 2025"), sales, profit, count.
+             current_month_* variables highlight the current month at the top.
+        ──────────────────────────────────────────────────────────────────── -->
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden mb-8 no-print">
+            <div class="p-5 border-b bg-gray-50 flex justify-between items-center">
+                <h3 class="font-bold text-gray-700">
+                    <i class="fas fa-calendar-alt text-brand mr-2"></i> Monthly Sales Summary
+                </h3>
+                <span class="text-xs text-gray-400 font-medium">All time, grouped by month</span>
+            </div>
+
+            <!-- Current Month Highlight Card -->
+            <div class="p-5 border-b bg-orange-50">
+                <p class="text-xs font-bold uppercase tracking-wider text-orange-400 mb-3">
+                    <i class="fas fa-star mr-1"></i> This Month — {{ current_month_label }}
+                </p>
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="text-center">
+                        <p class="text-2xl font-extrabold text-brand">₱{{ "%.2f"|format(current_month_sales) }}</p>
+                        <p class="text-xs text-gray-500 mt-1">Gross Sales</p>
+                    </div>
+                    <div class="text-center border-x border-orange-200">
+                        <p class="text-2xl font-extrabold text-green-600">₱{{ "%.2f"|format(current_month_profit) }}</p>
+                        <p class="text-xs text-gray-500 mt-1">Net Profit</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-2xl font-extrabold text-gray-700">{{ current_month_orders }}</p>
+                        <p class="text-xs text-gray-500 mt-1">Orders</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monthly Breakdown Table -->
+            {% if monthly_summary %}
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 border-b">
+                        <th class="p-4 font-semibold text-gray-600">Month</th>
+                        <th class="p-4 font-semibold text-gray-600 text-right">Total Sales</th>
+                        <th class="p-4 font-semibold text-gray-600 text-right">Net Profit</th>
+                        <th class="p-4 font-semibold text-gray-600 text-center">Orders</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for month in monthly_summary %}
+                    <tr class="border-b hover:bg-gray-50
+                               {%- if month.label == current_month_label %} bg-orange-50{% endif %}">
+                        <td class="p-4 font-medium text-gray-800">
+                            {% if month.label == current_month_label %}
+                            <span class="inline-block w-2 h-2 rounded-full bg-brand mr-2 align-middle"></span>
+                            {% endif %}
+                            {{ month.label }}
+                        </td>
+                        <td class="p-4 text-right font-bold text-gray-800">₱{{ "%.2f"|format(month.sales) }}</td>
+                        <td class="p-4 text-right font-medium text-green-600">₱{{ "%.2f"|format(month.profit) }}</td>
+                        <td class="p-4 text-center text-gray-600">{{ month.count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="p-6 text-center text-gray-400 italic text-sm">No sales data yet. Orders with timestamps will
+                appear here.</p>
+            {% endif %}
+        </div>
+
+        <!-- Sales Data Table -->
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <div class="p-5 border-b bg-gray-50 flex justify-between items-center">
+                <h3 class="font-bold text-gray-700">Detailed Transaction Log</h3>
+                <a href="/delete_all_sales"
+                    onclick="return confirm('⚠️ Are you sure you want to delete ALL sales records? This action cannot be undone.')"
+                    class="bg-red-600 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-red-700 transition flex items-center text-sm">
+                    <i class="fas fa-trash-alt mr-2"></i> Clear All Records
+                </a>
+            </div>
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 border-b">
+                        <th class="p-4 font-semibold text-gray-600">ID</th>
+                        <th class="p-4 font-semibold text-gray-600">Date &amp; Time</th>
+                        <th class="p-4 font-semibold text-gray-600">Customer</th>
+                        <th class="p-4 font-semibold text-gray-600">Item</th>
+                        <th class="p-4 font-semibold text-gray-600 text-center">Qty</th>
+                        <th class="p-4 font-semibold text-gray-600 text-right">Selling Price</th>
+                        <th class="p-4 font-semibold text-gray-600 text-right">Total</th>
+                        <th class="p-4 font-semibold text-gray-600 text-right">Profit</th>
+                        <th class="p-4 font-semibold text-gray-600 text-center">Customer Type</th>
+                        <th class="p-4 font-semibold text-gray-600 text-center">Payment</th>
+                        <th class="p-4 font-semibold text-gray-600 text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders|reverse %}
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-4 text-gray-500 font-mono text-sm">
+                            {% if order.order_id %}
+                            <a href="/receipt/{{ order.order_id }}" title="View Receipt"
+                                class="hover:text-brand hover:underline">#{{ order.order_id }}</a>
+                            {% else %}#{{ loop.revindex }}{% endif %}
+                        </td>
+                        <td class="p-4 text-xs text-gray-400 whitespace-nowrap">
+                            {% if order.datetime %}{{ order.datetime }}{% else %}<em>—</em>{% endif %}
+                        </td>
+                        <td class="p-4 font-medium">{{ order.customer }}</td>
+                        <td class="p-4">{{ order.item }}</td>
+                        <td class="p-4 text-center">{{ order.quantity }}</td>
+                        <td class="p-4 text-right text-gray-500">₱{{ "%.2f"|format(order.price) }}</td>
+                        <td class="p-4 text-right font-bold text-gray-800">₱{{ "%.2f"|format(order.total) }}</td>
+                        <td class="p-4 text-right font-medium text-green-600">₱{{ "%.2f"|format(order.profit) }}</td>
+                        <td class="p-4 text-center">
+                            {% if order.get('discount_type') == 'senior' %}
+                            <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium" title="{{ order.get('discount_name','') }} · {{ order.get('discount_id','') }}">
+                                <i class="fas fa-user-clock mr-1"></i>Senior (-₱{{ "%.2f"|format(order.get('discount_amount') or 0) }})
+                            </span>
+                            {% elif order.get('discount_type') == 'pwd' %}
+                            <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium" title="{{ order.get('discount_name','') }} · {{ order.get('discount_id','') }}">
+                                <i class="fas fa-wheelchair mr-1"></i>PWD (-₱{{ "%.2f"|format(order.get('discount_amount') or 0) }})
+                            </span>
+                            {% else %}
+                            <span class="px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-medium">Regular</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4 text-center">
+                            {% if order.get('payment_method') == 'gcash' %}
+                            <span class="px-2 py-1 rounded-full text-xs font-medium text-white"
+                                style="background-color:#007AFF">
+                                <i class="fas fa-mobile-alt mr-1"></i>GCash
+                            </span>
+                            {% else %}
+                            <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                                <i class="fas fa-money-bill-wave mr-1"></i>Cash
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4 text-center">
+                            <a href="/delete_sale/{{ order.id }}" onclick="return confirm('Delete this sales record?')"
+                                class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1 rounded transition text-sm font-medium">
+                                <i class="fas fa-undo mr-1"></i> Void
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not orders %}
+                    <tr>
+                        <td colspan="11" class="p-10 text-center text-gray-500">No sales transactions recorded yet.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Trend Bar Chart (Daily, Monthly, Yearly)
+    const trendData = {
+        daily: { labels: [], sales: [], profit: [] },
+        monthly: { labels: [], sales: [], profit: [] },
+        yearly: { labels: [], sales: [], profit: [] }
+    };
+
+    {% for day in daily_summary|reverse %}
+        trendData.daily.labels.push("{{ day.label }}");
+        trendData.daily.sales.push({{ day.sales }});
+        trendData.daily.profit.push({{ day.profit }});
+    {% endfor %}
+
+    {% for month in monthly_summary|reverse %}
+        trendData.monthly.labels.push("{{ month.label }}");
+        trendData.monthly.sales.push({{ month.sales }});
+        trendData.monthly.profit.push({{ month.profit }});
+    {% endfor %}
+
+    {% for year in yearly_summary|reverse %}
+        trendData.yearly.labels.push("{{ year.label }}");
+        trendData.yearly.sales.push({{ year.sales }});
+        trendData.yearly.profit.push({{ year.profit }});
+    {% endfor %}
+
+    const ctxTrend = document.getElementById('trendChart').getContext('2d');
+    const trendChart = new Chart(ctxTrend, {
+        type: 'bar',
+        data: {
+            labels: trendData.monthly.labels,
+            datasets: [
+                {
+                    label: 'Gross Sales (₱)',
+                    data: trendData.monthly.sales,
+                    backgroundColor: '#d94f2a',
+                    borderRadius: 4
+                },
+                {
+                    label: 'Net Profit (₱)',
+                    data: trendData.monthly.profit,
+                    backgroundColor: '#16a34a',
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+
+    const tfSelect = document.getElementById('trendTimeframe');
+    const downloadBtn = document.getElementById('downloadTrendCsv');
+
+    if(tfSelect && downloadBtn) {
+        tfSelect.addEventListener('change', function(e) {
+            const tf = e.target.value;
+            trendChart.data.labels = trendData[tf].labels;
+            trendChart.data.datasets[0].data = trendData[tf].sales;
+            trendChart.data.datasets[1].data = trendData[tf].profit;
+            trendChart.update();
+
+            // Update download link
+            downloadBtn.href = "/download_trend_csv/" + tf;
+        });
+    }
+
+    // 2. Top Products Pie Chart
+    const productLabels = [];
+    const productSales = [];
+    {% for item, data in sales.items() %}
+        {% if data.total_sold > 0 %}
+            productLabels.push("{{ item|safe }}");
+            productSales.push({{ data.total_sold }});
+        {% endif %}
+    {% endfor %}
+
+    const ctxProducts = document.getElementById('productsChart').getContext('2d');
+    new Chart(ctxProducts, {
+        type: 'pie',
+        data: {
+            labels: productLabels,
+            datasets: [{
+                data: productSales,
+                backgroundColor: ['#d94f2a', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed !== null) {
+                                let total = context.chart._metasets[context.datasetIndex].total;
+                                let percentage = Math.round((context.parsed / total) * 100) + '%';
+                                label += context.parsed + ' (' + percentage + ')';
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 3. Payment Methods Doughnut Chart
+    const cashSales = {{ orders | selectattr('payment_method', 'equalto', 'cash') | sum(attribute='total') | default(0, true) }};
+    const gcashSales = {{ orders | selectattr('payment_method', 'equalto', 'gcash') | sum(attribute='total') | default(0, true) }};
+
+    const ctxPayment = document.getElementById('paymentChart').getContext('2d');
+    new Chart(ctxPayment, {
+        type: 'doughnut',
+        data: {
+            labels: ['Cash', 'GCash'],
+            datasets: [{
+                data: [cashSales, gcashSales],
+                backgroundColor: ['#16a34a', '#007AFF']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed !== null) {
+                                let total = context.chart._metasets[context.datasetIndex].total;
+                                let percentage = Math.round((context.parsed / total) * 100) + '%';
+                                label += '₱' + context.parsed.toFixed(2) + ' (' + percentage + ')';
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+
+{% include '_chatbot.html' %}
+</body>
+</html>

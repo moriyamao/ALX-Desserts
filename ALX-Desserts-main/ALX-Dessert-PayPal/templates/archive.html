@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALX Desserts - Archive</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8fafc; font-family: 'Inter', sans-serif; }
+        .text-brand { color: #d94f2a; }
+        .bg-brand { background-color: #d94f2a; }
+        .bg-brand:hover { background-color: #b03b1a; }
+        @media print {
+            nav, .no-print { display: none !important; }
+            body { background: white !important; }
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Navbar -->
+    <nav class="bg-white shadow-sm border-b px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+        <div class="text-2xl font-bold text-brand flex items-center">
+            <img src="/static/images/alx_logo.png" alt="ALX Desserts Logo" class="h-10 w-10 mr-2 rounded-full object-cover"> ALX Desserts Admin
+        </div>
+        <div class="space-x-2">
+            <a href="/" class="text-gray-600 hover:text-brand hover:bg-orange-50 px-4 py-2 rounded-lg font-medium transition"><i class="fas fa-cash-register mr-1"></i> Point of Sale</a>
+            <a href="/inventory" class="text-gray-600 hover:text-brand hover:bg-orange-50 px-4 py-2 rounded-lg font-medium transition"><i class="fas fa-boxes mr-1"></i> Inventory</a>
+            <a href="/sales" class="text-gray-600 hover:text-brand hover:bg-orange-50 px-4 py-2 rounded-lg font-medium transition"><i class="fas fa-chart-line mr-1"></i> Reports</a>
+            <a href="/archive" class="bg-brand text-white px-4 py-2 rounded-lg font-medium shadow-sm hover:shadow transition"><i class="fas fa-archive mr-1"></i> Archive</a>
+            <a href="/logout" class="text-red-500 hover:bg-red-50 px-4 py-2 rounded-lg font-medium transition ml-4 border border-red-200"><i class="fas fa-sign-out-alt mr-1"></i> Logout</a>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto p-6">
+
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800"><i class="fas fa-archive text-brand mr-2"></i> Sales Archive</h1>
+                <p class="text-sm text-gray-500 mt-1">All voided and cleared sales records are stored here. Inventory was restored for each.</p>
+            </div>
+            <div class="flex gap-2 no-print">
+                <button onclick="window.print()"
+                        class="bg-gray-700 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-gray-800 transition flex items-center">
+                    <i class="fas fa-print mr-2"></i> Print / PDF
+                </button>
+                <a href="/download_archive_csv"
+                   class="bg-green-600 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-green-700 transition flex items-center">
+                    <i class="fas fa-file-csv mr-2"></i> Download CSV
+                </a>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="p-3 rounded-lg mb-6 text-sm {% if category == 'success' %}bg-green-50 text-green-700 border border-green-200{% else %}bg-red-50 text-red-700 border border-red-200{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- KPI Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-xl shadow-sm border flex items-center">
+                <div class="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 text-2xl mr-4">
+                    <i class="fas fa-archive"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">Total Archived</p>
+                    <h3 class="text-3xl font-bold text-gray-800">{{ total_archived }}</h3>
+                    <p class="text-xs text-gray-400 mt-0.5">records</p>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border flex items-center">
+                <div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-2xl mr-4">
+                    <i class="fas fa-peso-sign"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">Total Archived Value</p>
+                    <h3 class="text-3xl font-bold text-gray-800">₱{{ "%.2f"|format(total_archived_value) }}</h3>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border flex items-center">
+                <div class="w-14 h-14 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 text-2xl mr-4">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">Archived Profit</p>
+                    <h3 class="text-3xl font-bold text-gray-800">₱{{ "%.2f"|format(total_archived_profit) }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Archive Table -->
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <div class="p-5 border-b bg-gray-50 flex justify-between items-center">
+                <h3 class="font-bold text-gray-700">
+                    <i class="fas fa-list text-brand mr-2"></i> Archived Records
+                </h3>
+                <span class="text-xs text-gray-400 font-medium">Newest first · Inventory already restored</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 border-b">
+                            <th class="p-4 font-semibold text-gray-600">Order ID</th>
+                            <th class="p-4 font-semibold text-gray-600">Original Date</th>
+                            <th class="p-4 font-semibold text-gray-600">Customer</th>
+                            <th class="p-4 font-semibold text-gray-600">Item</th>
+                            <th class="p-4 font-semibold text-gray-600 text-center">Qty</th>
+                            <th class="p-4 font-semibold text-gray-600 text-right">Total</th>
+                            <th class="p-4 font-semibold text-gray-600 text-right">Profit</th>
+                            <th class="p-4 font-semibold text-gray-600 text-center">Payment</th>
+                            <th class="p-4 font-semibold text-gray-600 text-center">Reason</th>
+                            <th class="p-4 font-semibold text-gray-600">Archived At</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in archived %}
+                        <tr class="border-b hover:bg-gray-50 transition">
+                            <td class="p-4 text-gray-500 font-mono text-sm">#{{ record.order_id }}</td>
+                            <td class="p-4 text-xs text-gray-400 whitespace-nowrap">
+                                {% if record.datetime %}{{ record.datetime }}{% else %}<em>—</em>{% endif %}
+                            </td>
+                            <td class="p-4 font-medium text-gray-800">{{ record.customer }}</td>
+                            <td class="p-4 text-gray-700">{{ record.item }}</td>
+                            <td class="p-4 text-center">
+                                <span class="px-2 py-1 bg-gray-100 rounded-full text-sm font-medium">{{ record.quantity }}</span>
+                            </td>
+                            <td class="p-4 text-right font-bold text-gray-800">₱{{ "%.2f"|format(record.total) }}</td>
+                            <td class="p-4 text-right font-medium text-green-600">₱{{ "%.2f"|format(record.profit) }}</td>
+                            <td class="p-4 text-center">
+                                {% if record.payment_method == 'gcash' %}
+                                    <span class="px-2 py-1 rounded-full text-xs font-medium text-white" style="background-color:#007AFF">
+                                        <i class="fas fa-mobile-alt mr-1"></i>GCash
+                                    </span>
+                                {% else %}
+                                    <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                                        <i class="fas fa-money-bill-wave mr-1"></i>Cash
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="p-4 text-center">
+                                {% if record.reason == 'cleared' %}
+                                    <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
+                                        <i class="fas fa-broom mr-1"></i>Cleared
+                                    </span>
+                                {% else %}
+                                    <span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">
+                                        <i class="fas fa-undo mr-1"></i>Voided
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="p-4 text-xs text-gray-400 whitespace-nowrap">{{ record.archived_at }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% if not archived %}
+                        <tr>
+                            <td colspan="10" class="p-12 text-center text-gray-400">
+                                <i class="fas fa-archive text-4xl mb-3 block text-gray-200"></i>
+                                No archived records yet.<br>
+                                <span class="text-sm">Voided or cleared sales will appear here.</span>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    {% include '_chatbot.html' %}
+</body>
+</html>

@@ -1,0 +1,434 @@
+<!-- ── ALX AI Chatbot Widget ──────────────────────────────────────────────── -->
+<style>
+  /* ── Launcher button ── */
+  #alx-chat-launcher {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    z-index: 9998;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #d94f2a 0%, #ff7b35 100%);
+    box-shadow: 0 6px 24px rgba(217,79,42,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: none;
+    transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), box-shadow 0.25s;
+    outline: none;
+  }
+  #alx-chat-launcher:hover {
+    transform: scale(1.12) rotate(-8deg);
+    box-shadow: 0 10px 32px rgba(217,79,42,0.55);
+  }
+  #alx-chat-launcher .chat-icon   { display: block; }
+  #alx-chat-launcher .close-icon  { display: none; }
+  #alx-chat-launcher.open .chat-icon  { display: none; }
+  #alx-chat-launcher.open .close-icon { display: block; }
+
+  /* Unread badge */
+  #alx-chat-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #111;
+    color: #ff7b35;
+    border: 2px solid #fff;
+    border-radius: 9999px;
+    font-size: 10px;
+    font-weight: 800;
+    min-width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    animation: badge-pop 0.3s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes badge-pop {
+    from { transform: scale(0); }
+    to   { transform: scale(1); }
+  }
+
+  /* ── Chat panel ── */
+  #alx-chat-panel {
+    position: fixed;
+    bottom: 100px;
+    right: 28px;
+    z-index: 9999;
+    width: 370px;
+    max-height: 560px;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: scale(0.85) translateY(20px);
+    opacity: 0;
+    pointer-events: none;
+    transform-origin: bottom right;
+    transition: transform 0.3s cubic-bezier(.34,1.56,.64,1), opacity 0.25s ease;
+  }
+  #alx-chat-panel.open {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  /* Header */
+  #alx-chat-header {
+    background: linear-gradient(135deg, #111 0%, #2a2a2a 100%);
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    border-bottom: 2px solid #d94f2a;
+  }
+  .alx-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #d94f2a, #ff7b35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .alx-header-info h4 {
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.2;
+  }
+  .alx-header-info p {
+    color: #ff7b35;
+    font-size: 11px;
+    margin: 0;
+    font-weight: 600;
+  }
+  .alx-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+    display: inline-block;
+    margin-right: 4px;
+    animation: pulse-dot 2s infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+  }
+
+  /* Messages */
+  #alx-chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    background: #f9fafb;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    scroll-behavior: smooth;
+  }
+  #alx-chat-messages::-webkit-scrollbar { width: 4px; }
+  #alx-chat-messages::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+
+  .chat-bubble {
+    max-width: 82%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    word-break: break-word;
+    animation: bubble-in 0.25s ease;
+  }
+  @keyframes bubble-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .chat-bubble.user {
+    background: linear-gradient(135deg, #d94f2a, #ff7b35);
+    color: #fff;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+    font-weight: 500;
+  }
+  .chat-bubble.bot {
+    background: #fff;
+    color: #1f2937;
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border: 1px solid #e5e7eb;
+  }
+  .chat-bubble.bot b { color: #d94f2a; }
+
+  /* Typing indicator */
+  .typing-bubble {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 12px 16px;
+    background: #fff;
+    border-radius: 16px;
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border: 1px solid #e5e7eb;
+    align-self: flex-start;
+    animation: bubble-in 0.25s ease;
+  }
+  .typing-bubble span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #d94f2a;
+    animation: typing-bounce 1.2s infinite;
+  }
+  .typing-bubble span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-bubble span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typing-bounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+    40%            { transform: translateY(-6px); opacity: 1; }
+  }
+
+  /* Input area */
+  #alx-chat-footer {
+    padding: 12px 14px;
+    background: #fff;
+    border-top: 1px solid #f0f0f0;
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    flex-shrink: 0;
+  }
+  #alx-chat-input {
+    flex: 1;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 9px 13px;
+    font-size: 13.5px;
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
+    max-height: 100px;
+    overflow-y: auto;
+    line-height: 1.4;
+  }
+  #alx-chat-input:focus { border-color: #d94f2a; }
+  #alx-chat-send {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #d94f2a, #ff7b35);
+    border: none;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.15s, opacity 0.15s;
+  }
+  #alx-chat-send:hover  { transform: scale(1.1); }
+  #alx-chat-send:active { transform: scale(0.95); }
+  #alx-chat-send:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* Suggestion chips */
+  #alx-chat-chips {
+    padding: 8px 14px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chat-chip {
+    background: #fff3ee;
+    border: 1px solid #fbbf9a;
+    color: #d94f2a;
+    border-radius: 999px;
+    padding: 4px 11px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.15s;
+    white-space: nowrap;
+  }
+  .chat-chip:hover { background: #ffe5d9; transform: scale(1.04); }
+
+  /* Responsive */
+  @media (max-width: 420px) {
+    #alx-chat-panel { width: calc(100vw - 24px); right: 12px; bottom: 90px; }
+    #alx-chat-launcher { right: 16px; bottom: 16px; }
+  }
+</style>
+
+<!-- Launcher Button -->
+<button id="alx-chat-launcher" aria-label="Open ALX AI Chat" onclick="alxToggleChat()">
+  <i class="fas fa-comment-dots text-white text-2xl chat-icon"></i>
+  <i class="fas fa-times text-white text-2xl close-icon"></i>
+</button>
+
+<!-- Chat Panel -->
+<div id="alx-chat-panel" role="dialog" aria-label="ALX Desserts AI Assistant">
+  <!-- Header -->
+  <div id="alx-chat-header">
+    <div class="alx-avatar">🍰</div>
+    <div class="alx-header-info">
+      <h4>ALX Assistant</h4>
+      <p><span class="alx-status-dot"></span>Online · ALX Desserts AI</p>
+    </div>
+    <button onclick="alxToggleChat()" style="margin-left:auto;background:none;border:none;color:#9ca3af;font-size:18px;cursor:pointer;padding:4px;" aria-label="Close chat">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+
+  <!-- Suggestion Chips -->
+  <div id="alx-chat-chips">
+    <button class="chat-chip" onclick="alxChip('What products do you have?')">🍮 Products</button>
+    <button class="chat-chip" onclick="alxChip('How do I add inventory?')">📦 Inventory</button>
+    <button class="chat-chip" onclick="alxChip('How to process a GCash payment?')">💳 GCash</button>
+    <button class="chat-chip" onclick="alxChip('How do I view sales reports?')">📊 Reports</button>
+  </div>
+
+  <!-- Messages -->
+  <div id="alx-chat-messages">
+    <div class="chat-bubble bot">
+      👋 Hi! I'm <b>ALX Assistant</b>, your smart helper for the <b>ALX Desserts</b> system.<br><br>
+      I can help you with products, orders, inventory, payments, and reports. What can I do for you?
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div id="alx-chat-footer">
+    <textarea id="alx-chat-input" placeholder="Ask about ALX Desserts..." rows="1" maxlength="1000"
+              onkeydown="alxHandleKey(event)" oninput="alxAutoResize(this)"></textarea>
+    <button id="alx-chat-send" onclick="alxSendMessage()" aria-label="Send message">
+      <i class="fas fa-paper-plane"></i>
+    </button>
+  </div>
+</div>
+
+<script>
+  // ── State ────────────────────────────────────────────────────────────────
+  let alxChatOpen    = false;
+  let alxChatHistory = [];  // [{role, content}]
+  let alxChatBusy    = false;
+  const ALX_HISTORY_LIMIT = 10; // mirrors backend's CHAT_HISTORY_LIMIT
+
+  // ── Toggle open/close ─────────────────────────────────────────────────
+  function alxToggleChat() {
+    alxChatOpen = !alxChatOpen;
+    const panel    = document.getElementById('alx-chat-panel');
+    const launcher = document.getElementById('alx-chat-launcher');
+    const badge    = document.getElementById('alx-chat-badge');
+    if (alxChatOpen) {
+      panel.classList.add('open');
+      launcher.classList.add('open');
+      if (badge) badge.remove();
+      setTimeout(() => document.getElementById('alx-chat-input').focus(), 300);
+    } else {
+      panel.classList.remove('open');
+      launcher.classList.remove('open');
+    }
+  }
+
+  // ── Suggestion chips ──────────────────────────────────────────────────
+  function alxChip(text) {
+    // Hide chips after first use
+    document.getElementById('alx-chat-chips').style.display = 'none';
+    document.getElementById('alx-chat-input').value = text;
+    alxSendMessage();
+  }
+
+  // ── Auto-resize textarea ─────────────────────────────────────────────
+  function alxAutoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+  }
+
+  // ── Enter to send (Shift+Enter = newline) ────────────────────────────
+  function alxHandleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); alxSendMessage(); }
+  }
+
+  // ── Append a bubble ──────────────────────────────────────────────────
+  function alxAppendBubble(text, role) {
+    const msgs = document.getElementById('alx-chat-messages');
+    const div  = document.createElement('div');
+    div.className = 'chat-bubble ' + role;
+    // Basic markdown: **bold**, newlines
+    div.innerHTML = text
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+      .replace(/\n/g, '<br>');
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+    return div;
+  }
+
+  // ── Typing indicator ─────────────────────────────────────────────────
+  function alxShowTyping() {
+    const msgs = document.getElementById('alx-chat-messages');
+    const div  = document.createElement('div');
+    div.className = 'typing-bubble';
+    div.id = 'alx-typing';
+    div.innerHTML = '<span></span><span></span><span></span>';
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+  function alxHideTyping() {
+    const el = document.getElementById('alx-typing');
+    if (el) el.remove();
+  }
+
+  // ── Send message ─────────────────────────────────────────────────────
+  async function alxSendMessage() {
+    if (alxChatBusy) return;
+    const input = document.getElementById('alx-chat-input');
+    const msg   = input.value.trim();
+    if (!msg) return;
+
+    // Hide chips on first real message
+    document.getElementById('alx-chat-chips').style.display = 'none';
+    input.value = '';
+    input.style.height = 'auto';
+    alxAppendBubble(msg, 'user');
+    alxChatHistory.push({ role: 'user', content: msg });
+    if (alxChatHistory.length > ALX_HISTORY_LIMIT * 2) {
+      alxChatHistory = alxChatHistory.slice(-ALX_HISTORY_LIMIT * 2);
+    }
+
+    alxChatBusy = true;
+    document.getElementById('alx-chat-send').disabled = true;
+    alxShowTyping();
+
+    try {
+      const res  = await fetch('/chat', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ message: msg, history: alxChatHistory.slice(0, -1) })
+      });
+      const data = await res.json();
+      alxHideTyping();
+      const reply = data.reply || 'Sorry, I could not get a response.';
+      alxAppendBubble(reply, 'bot');
+      alxChatHistory.push({ role: 'assistant', content: reply });
+    } catch (err) {
+      alxHideTyping();
+      alxAppendBubble('⚠️ Network error. Please check your connection and try again.', 'bot');
+    } finally {
+      alxChatBusy = false;
+      document.getElementById('alx-chat-send').disabled = false;
+      input.focus();
+    }
+  }
+</script>
+<!-- ── End ALX AI Chatbot Widget ─────────────────────────────────────────── -->

@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALX Desserts - Admin POS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8fafc; font-family: 'Inter', sans-serif; }
+        .text-brand { color: #d94f2a; }
+        .bg-brand { background-color: #d94f2a; }
+        .bg-brand:hover { background-color: #b03b1a; }
+        .item-card { transition: all 0.2s; }
+        .item-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        .item-card.in-cart { border-color: #d94f2a; box-shadow: 0 0 0 2px #d94f2a; background-color: #fffaf5; }
+        .payment-tab.active { background-color: #d94f2a; color: white; }
+        .discount-tab { background-color: #f9fafb; color: #4b5563; }
+        .discount-tab.active.senior { background-color: #2563eb; color: white; }
+        .discount-tab.active.pwd    { background-color: #7c3aed; color: white; }
+        .discount-tab.active.none   { background-color: #e5e7eb; color: #374151; }
+        #gcash-modal { display: none; }
+        #gcash-modal.open { display: flex; }
+        .cart-badge { position: absolute; top: 6px; right: 6px; background: #d94f2a; color: white;
+                      border-radius: 9999px; font-size: 11px; font-weight: 700;
+                      min-width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; padding: 0 5px; }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Navbar -->
+    <nav class="bg-white shadow-sm border-b px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+        <div class="text-2xl font-bold text-brand flex items-center">
+            <img src="/static/images/alx_logo.png" alt="ALX Desserts Logo" class="h-10 w-10 mr-2 rounded-full object-cover"> ALX Desserts Admin
+        </div>
+        <div class="space-x-2">
+            <a href="/" class="bg-brand text-white px-4 py-2 rounded-lg font-medium shadow-sm hover:shadow transition"><i class="fas fa-cash-register mr-1"></i> Point of Sale</a>
+            <a href="/inventory" class="text-gray-600 hover:text-brand hover:bg-orange-50 px-4 py-2 rounded-lg font-medium transition"><i class="fas fa-boxes mr-1"></i> Inventory</a>
+            <a href="/sales" class="text-gray-600 hover:text-brand hover:bg-orange-50 px-4 py-2 rounded-lg font-medium transition"><i class="fas fa-chart-line mr-1"></i> Reports</a>
+            <a href="/archive" class="text-gray-600 hover:text-brand hover:bg-orange-50 px-4 py-2 rounded-lg font-medium transition"><i class="fas fa-archive mr-1"></i> Archive</a>
+            <a href="/logout" class="text-red-500 hover:bg-red-50 px-4 py-2 rounded-lg font-medium transition ml-4 border border-red-200"><i class="fas fa-sign-out-alt mr-1"></i> Logout</a>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto p-6 flex flex-col lg:flex-row gap-6">
+
+        <!-- Left: Products -->
+        <div class="flex-1 bg-white p-6 rounded-xl shadow-sm border">
+            <h2 class="text-xl font-bold mb-2 flex items-center"><i class="fas fa-th-large mr-2 text-brand"></i> Select Product</h2>
+            <p class="text-sm text-gray-500 mb-4"><i class="fas fa-info-circle mr-1"></i> Click items to add to cart. Click again to increase quantity.</p>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="p-3 rounded-lg mb-4 text-sm {% if category == 'success' %}bg-green-50 text-green-700 border border-green-200{% else %}bg-red-50 text-red-700 border border-red-200{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {% for item, data in inventory.items() %}
+                <div class="item-card border rounded-lg p-3 cursor-pointer relative overflow-hidden"
+                     data-item="{{ item }}"
+                     data-price="{{ data.price }}"
+                     data-stock="{{ data.quantity }}"
+                     onclick="toggleItem('{{ item }}', {{ data.price }}, {{ data.quantity }})">
+                    <span class="cart-badge hidden" id="badge-{{ item|replace(' ', '_') }}">0</span>
+                    <div class="w-full h-32 bg-gray-100 rounded-md mb-3 flex items-center justify-center overflow-hidden">
+                        {% if data.image and data.image != 'default.png' %}
+                            <img src="{{ url_for('static', filename='images/' + data.image) }}" alt="{{ item }}" class="w-full h-full object-cover">
+                        {% else %}
+                            <i class="fas fa-image text-3xl text-gray-300"></i>
+                        {% endif %}
+                    </div>
+                    <div class="font-semibold truncate" title="{{ item }}">{{ item }}</div>
+                    <div class="flex justify-between items-center mt-1">
+                        <span class="text-brand font-bold">₱{{ "%.2f"|format(data.price) }}</span>
+                        <span class="text-xs px-2 py-1 rounded-full font-medium
+                            {%- if data.quantity <= low_stock_threshold %} bg-red-100 text-red-600{%- else %} bg-gray-100 text-gray-600{%- endif %}">
+                            {%- if data.quantity <= low_stock_threshold %}<i class="fas fa-exclamation-circle mr-0.5"></i>{% endif %}
+                            {{ data.quantity }} left
+                        </span>
+                    </div>
+                    {%- if data.quantity == 0 %}
+                    <div class="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center rounded-lg">
+                        <span class="text-xs font-bold text-red-500 bg-red-100 px-2 py-1 rounded-full border border-red-200">OUT OF STOCK</span>
+                    </div>
+                    {%- endif %}
+                </div>
+                {% endfor %}
+                {% if not inventory %}
+                    <div class="col-span-full py-10 text-center text-gray-500">
+                        <i class="fas fa-box-open text-4xl mb-3 text-gray-300"></i>
+                        <p>No inventory available.</p>
+                        <a href="/inventory" class="text-brand hover:underline mt-2 inline-block">Add items in Inventory</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Right: Order Panel -->
+        <div class="w-full lg:w-96">
+            <div class="bg-white p-6 rounded-xl shadow-sm border sticky top-24">
+                <h2 class="text-xl font-bold mb-4 flex items-center">
+                    <i class="fas fa-shopping-cart mr-2 text-brand"></i> New Order
+                    <span id="cart-count" class="ml-2 text-xs bg-brand text-white rounded-full px-2 py-0.5 hidden">0</span>
+                </h2>
+
+                <!-- Customer Name -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
+                    <div class="relative">
+                        <i class="fas fa-user absolute left-3 top-3 text-gray-400"></i>
+                        <input type="text" id="customer-name" placeholder="Name:"
+                               class="pl-10 w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none" required>
+                    </div>
+                </div>
+
+                <!-- Senior Citizen / PWD Discount -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Customer Type</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" id="disc-btn-none" onclick="setDiscountType('none')"
+                                class="discount-tab none active rounded-lg py-2 text-xs font-semibold transition">
+                            <i class="fas fa-user mr-1"></i> Regular
+                        </button>
+                        <button type="button" id="disc-btn-senior" onclick="setDiscountType('senior')"
+                                class="discount-tab senior rounded-lg py-2 text-xs font-semibold transition">
+                            <i class="fas fa-user-clock mr-1"></i> Senior
+                        </button>
+                        <button type="button" id="disc-btn-pwd" onclick="setDiscountType('pwd')"
+                                class="discount-tab pwd rounded-lg py-2 text-xs font-semibold transition">
+                            <i class="fas fa-wheelchair mr-1"></i> PWD
+                        </button>
+                    </div>
+
+                    <div id="discount-fields" class="hidden mt-2 space-y-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p class="text-xs font-semibold text-gray-600" id="discount-fields-label">
+                            <i class="fas fa-id-card mr-1"></i> Senior Citizen ID Details
+                        </p>
+                        <div class="relative">
+                            <i class="fas fa-user absolute left-3 top-3 text-gray-400 text-xs"></i>
+                            <input type="text" id="discount-name" placeholder="Full name on ID"
+                                   class="pl-8 w-full p-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none">
+                        </div>
+                        <div class="relative">
+                            <i class="fas fa-id-card absolute left-3 top-3 text-gray-400 text-xs"></i>
+                            <input type="text" id="discount-id" placeholder="ID Number"
+                                   class="pl-8 w-full p-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none">
+                        </div>
+                        <p class="text-xs text-gray-500"><i class="fas fa-info-circle mr-1"></i>20% discount, VAT-exempt per PH law.</p>
+                    </div>
+                </div>
+
+                <!-- Cart Items -->
+                <div id="cart-empty" class="py-5 text-center text-gray-400 text-sm border rounded-lg mb-4">
+                    <i class="fas fa-cart-plus text-3xl mb-2 block text-gray-300"></i>
+                    No items added yet.<br>Click products on the left.
+                </div>
+                <div id="cart-items" class="hidden mb-4 space-y-2 max-h-52 overflow-y-auto pr-1"></div>
+
+                <!-- Total display -->
+                <div id="cart-total-section" class="hidden border-t pt-4 mb-4">
+                    <div class="flex justify-between mb-2">
+                        <span class="text-gray-600">Unit Price</span>
+                        <span class="font-medium" id="unit-price">₱0.00</span>
+                    </div>
+                    <div class="flex justify-between mb-2 text-sm">
+                        <span class="text-gray-500">Gross Amount</span>
+                        <span class="text-gray-500" id="gross-amount">₱0.00</span>
+                    </div>
+                    <div class="flex justify-between mb-2 text-sm hidden" id="discount-row">
+                        <span class="text-blue-600"><i class="fas fa-tag mr-1"></i>Senior/PWD Discount (20%)</span>
+                        <span class="text-blue-600" id="discount-amount-display">-₱0.00</span>
+                    </div>
+                    <div class="flex justify-between mb-2 text-xs text-gray-400" id="vat-row">
+                        <span>VAT (12%) included</span>
+                        <span id="vat-amount-display">₱0.00</span>
+                    </div>
+                    <div class="flex justify-between mb-2 text-xs text-green-600 hidden" id="vat-exempt-row">
+                        <span><i class="fas fa-check-circle mr-1"></i>VAT-Exempt</span>
+                        <span>₱0.00</span>
+                    </div>
+                    <div class="flex justify-between text-lg font-bold">
+                        <span>Total</span>
+                        <span class="text-brand" id="total-price">₱0.00</span>
+                    </div>
+                </div>
+
+                <!-- Payment Method Tabs -->
+                <div class="mb-4">
+                    <p class="text-sm font-medium text-gray-700 mb-2">Payment Method</p>
+                    <div class="flex rounded-lg border overflow-hidden">
+                        <button id="tab-cash" onclick="switchTab('cash')"
+                                class="payment-tab active flex-1 py-2 text-sm font-medium transition">
+                            <i class="fas fa-money-bill-wave mr-1"></i> Cash
+                        </button>
+                        <button id="tab-gcash" onclick="switchTab('gcash')"
+                                class="payment-tab flex-1 py-2 text-sm font-medium text-gray-600 transition">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/GCash_logo.svg/200px-GCash_logo.svg.png"
+                                 alt="GCash" class="h-4 inline mr-1" onerror="this.style.display='none'">
+                            GCash
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Shared hidden form -->
+                <form method="POST" action="/add_cart_order" id="orderForm">
+                    <input type="hidden" name="customer"       id="form-customer">
+                    <input type="hidden" name="payment_method" id="form-payment-method" value="cash">
+                    <input type="hidden" name="amount_received" id="form-amount-received" value="0">
+                    <input type="hidden" name="change_amount"   id="form-change-amount" value="0">
+                    <input type="hidden" name="cart"           id="form-cart" value="[]">
+                    <input type="hidden" name="discount_type"  id="form-discount-type" value="none">
+                    <input type="hidden" name="discount_name"  id="form-discount-name" value="">
+                    <input type="hidden" name="discount_id"    id="form-discount-id" value="">
+
+                    <!-- CASH button -->
+                    <div id="cash-section">
+                        <div class="mb-3 p-3 bg-gray-50 border rounded-lg">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Amount Received (₱)</label>
+                            <input type="number" id="cash-received" class="w-full p-2 border rounded focus:ring-2 focus:ring-brand focus:outline-none mb-2" min="0" step="0.01" placeholder="0.00" oninput="calculateChange()">
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-gray-600 font-medium">Change:</span>
+                                <span id="cash-change" class="font-bold text-green-600 text-lg">₱0.00</span>
+                            </div>
+                        </div>
+                        <button type="submit" onclick="return prepareOrder('cash')"
+                                class="w-full bg-brand text-white font-bold py-3 rounded-lg hover:shadow-lg transition flex justify-center items-center">
+                            <i class="fas fa-check-circle mr-2"></i> Complete Order (Cash)
+                        </button>
+                    </div>
+
+                    <!-- GCASH button -->
+                    <div id="gcash-section" class="hidden">
+                        <button type="button" onclick="openGcashModal()"
+                                class="w-full font-bold py-3 rounded-lg hover:shadow-lg transition flex justify-center items-center text-white"
+                                style="background-color:#007AFF">
+                            <i class="fas fa-qrcode mr-2"></i> Pay with GCash
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Clear Cart -->
+                <button onclick="clearCart()" id="clear-btn"
+                        class="hidden w-full mt-2 text-sm text-gray-500 hover:text-red-500 py-2 rounded-lg hover:bg-red-50 transition">
+                    <i class="fas fa-trash-alt mr-1"></i> Clear Cart
+                </button>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Orders -->
+    <div class="max-w-7xl mx-auto p-6 pt-0">
+        <div class="bg-white p-6 rounded-xl shadow-sm border">
+            <h2 class="text-xl font-bold mb-4 flex items-center"><i class="fas fa-history mr-2 text-brand"></i> Recent Orders</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 border-b">
+                            <th class="p-3 font-semibold text-gray-600">Customer</th>
+                            <th class="p-3 font-semibold text-gray-600">Item</th>
+                            <th class="p-3 font-semibold text-gray-600 text-center">Qty</th>
+                            <th class="p-3 font-semibold text-gray-600 text-right">Price</th>
+                            <th class="p-3 font-semibold text-gray-600 text-right">Total</th>
+                            <th class="p-3 font-semibold text-gray-600 text-center">Payment</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders[-5:]|reverse %}
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="p-3 font-medium">{{ order.customer }}</td>
+                            <td class="p-3">{{ order.item }}</td>
+                            <td class="p-3 text-center"><span class="px-2 py-1 bg-gray-100 rounded-full text-sm font-medium">{{ order.quantity }}</span></td>
+                            <td class="p-3 text-right text-gray-600">₱{{ "%.2f"|format(order.price) }}</td>
+                            <td class="p-3 text-right font-bold">₱{{ "%.2f"|format(order.total) }}</td>
+                            <td class="p-3 text-center">
+                                {% if order.get('payment_method') == 'gcash' %}
+                                    <span class="px-2 py-1 rounded-full text-xs font-medium text-white" style="background-color:#007AFF"><i class="fas fa-mobile-alt mr-1"></i>GCash</span>
+                                {% else %}
+                                    <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium"><i class="fas fa-money-bill-wave mr-1"></i>Cash</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not orders %}
+                        <tr><td colspan="6" class="p-8 text-center text-gray-400 italic">No orders yet today.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+                {% if orders|length > 5 %}
+                <div class="text-center mt-4">
+                    <a href="/sales" class="text-brand hover:underline text-sm font-medium">View all {{ orders|length }} orders <i class="fas fa-arrow-right text-xs"></i></a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- GCash Modal -->
+    <div id="gcash-modal" class="fixed inset-0 bg-black bg-opacity-60 z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative">
+            <button onclick="closeGcashModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-xl">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="text-center mb-4">
+                <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-2" style="background-color:#007AFF">
+                    <i class="fas fa-mobile-alt text-white text-2xl"></i>
+                </div>
+                <h2 class="text-xl font-bold text-gray-800">GCash Payment</h2>
+                <p class="text-sm text-gray-500 mt-1">Ask the customer to scan and pay</p>
+            </div>
+            <div class="rounded-xl p-4 mb-4 text-sm" style="background-color:#EFF6FF">
+                <div class="flex justify-between mb-1">
+                    <span class="text-gray-600">Customer</span>
+                    <span class="font-semibold" id="modal-customer">—</span>
+                </div>
+                <div id="modal-items-list" class="space-y-1 text-xs text-gray-700 mb-1"></div>
+                <div class="flex justify-between border-t pt-2 mt-2">
+                    <span class="font-bold text-gray-700">Amount Due</span>
+                    <span class="font-bold text-lg" style="color:#007AFF" id="modal-total">₱0.00</span>
+                </div>
+            </div>
+            <div class="flex flex-col items-center mb-5">
+                <div class="border-4 rounded-xl p-2" style="border-color:#007AFF">
+                    <img id="gcash-qr-img"
+                         src="/static/images/gcash_qr2.png"
+                         onerror="this.style.display='none'; document.getElementById('qr-placeholder').style.display='flex';"
+                         alt="GCash QR Code"
+                         class="w-48 h-48 object-contain">
+                    <div id="qr-placeholder" class="w-48 h-48 flex-col items-center justify-center text-center hidden" style="display:none">
+                        <i class="fas fa-qrcode text-6xl mb-2" style="color:#007AFF"></i>
+                        <p class="text-xs text-gray-500">Place your GCash QR code<br>at <code>static/images/gcash_qr.png</code></p>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">Scan with GCash app to pay</p>
+            </div>
+            <button onclick="confirmGcashPayment()"
+                    class="w-full text-white font-bold py-3 rounded-xl mb-2 transition hover:opacity-90"
+                    style="background-color:#007AFF">
+                <i class="fas fa-check-circle mr-2"></i> Confirm Payment Received
+            </button>
+            <button onclick="closeGcashModal()"
+                    class="w-full bg-gray-100 text-gray-700 font-semibold py-2 rounded-xl hover:bg-gray-200 transition text-sm">
+                Cancel
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let cart = {};
+        let currentDiscountType = 'none'; // 'none' | 'senior' | 'pwd'
+
+        // ── Senior/PWD discount type switching ─────────────────────────
+        function setDiscountType(type) {
+            currentDiscountType = type;
+            ['none', 'senior', 'pwd'].forEach(function(t) {
+                document.getElementById('disc-btn-' + t).classList.toggle('active', t === type);
+            });
+            const fields = document.getElementById('discount-fields');
+            const label  = document.getElementById('discount-fields-label');
+            if (type === 'none') {
+                fields.classList.add('hidden');
+            } else {
+                fields.classList.remove('hidden');
+                label.innerHTML = '<i class="fas fa-id-card mr-1"></i> '
+                    + (type === 'senior' ? 'Senior Citizen ID Details' : 'PWD ID Details');
+            }
+            renderCart();
+        }
+
+        // ── Shared pricing calc (VAT-inclusive prices; 20% Senior/PWD, VAT-exempt) ──
+        function computeOrderTotals() {
+            let gross = 0;
+            Object.keys(cart).forEach(function(name) {
+                gross += cart[name].price * cart[name].qty;
+            });
+            gross = Math.round(gross * 100) / 100;
+
+            let discount = 0, vat = 0, total = gross;
+            if (currentDiscountType === 'senior' || currentDiscountType === 'pwd') {
+                discount = Math.round(gross * 0.20 * 100) / 100;
+                total = Math.round((gross - discount) * 100) / 100;
+                vat = 0;
+            } else {
+                total = gross;
+                vat = Math.round((total * 12 / 112) * 100) / 100;
+            }
+            return { gross: gross, discount: discount, vat: vat, total: total };
+        }
+
+        // ── Add / increment item on card click ───────────────────────
+        function toggleItem(itemName, price, stock) {
+            if (stock <= 0) { alert("This item is out of stock!"); return; }
+            if (cart[itemName]) {
+                if (cart[itemName].qty < stock) {
+                    cart[itemName].qty++;
+                } else {
+                    alert("Max stock (" + stock + ") reached for " + itemName + ".");
+                    return;
+                }
+            } else {
+                cart[itemName] = { price: price, qty: 1, stock: stock };
+            }
+            renderCart();
+        }
+
+        function changeQty(itemName, delta) {
+            if (!cart[itemName]) return;
+            const newQty = cart[itemName].qty + delta;
+            if (newQty <= 0) { removeFromCart(itemName); return; }
+            if (newQty > cart[itemName].stock) { alert("Max stock (" + cart[itemName].stock + ") reached."); return; }
+            cart[itemName].qty = newQty;
+            renderCart();
+        }
+
+        function removeFromCart(itemName) { delete cart[itemName]; renderCart(); }
+        function clearCart() {
+            cart = {};
+            document.getElementById('discount-name').value = '';
+            document.getElementById('discount-id').value = '';
+            setDiscountType('none');
+        }
+
+        // ── Render cart sidebar ──────────────────────────────────────
+        function renderCart() {
+            const keys         = Object.keys(cart);
+            const cartItemsEl  = document.getElementById('cart-items');
+            const cartEmptyEl  = document.getElementById('cart-empty');
+            const totalSection = document.getElementById('cart-total-section');
+            const cartCountEl  = document.getElementById('cart-count');
+            const clearBtn     = document.getElementById('clear-btn');
+
+            // Update card highlights & badges
+            document.querySelectorAll('.item-card').forEach(function(card) {
+                const name  = card.dataset.item;
+                const badge = document.getElementById('badge-' + name.replace(/ /g, '_'));
+                if (cart[name]) {
+                    card.classList.add('in-cart');
+                    if (badge) { badge.innerText = cart[name].qty; badge.classList.remove('hidden'); }
+                } else {
+                    card.classList.remove('in-cart');
+                    if (badge) badge.classList.add('hidden');
+                }
+            });
+
+            if (keys.length === 0) {
+                cartItemsEl.classList.add('hidden');
+                cartEmptyEl.classList.remove('hidden');
+                totalSection.classList.add('hidden');
+                cartCountEl.classList.add('hidden');
+                clearBtn.classList.add('hidden');
+                document.getElementById('unit-price').innerText = '₱0.00';
+                document.getElementById('total-price').innerText = '₱0.00';
+                return;
+            }
+
+            cartEmptyEl.classList.add('hidden');
+            cartItemsEl.classList.remove('hidden');
+            totalSection.classList.remove('hidden');
+            cartCountEl.classList.remove('hidden');
+            clearBtn.classList.remove('hidden');
+
+            let total = 0, itemCount = 0, html = '';
+            keys.forEach(function(name) {
+                const price    = cart[name].price;
+                const qty      = cart[name].qty;
+                const subtotal = price * qty;
+                total     += subtotal;
+                itemCount += qty;
+                html += '<div class="flex items-center justify-between bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-sm">'
+                      + '<div class="flex-1 min-w-0"><div class="font-semibold truncate">' + name + '</div>'
+                      + '<div class="text-gray-500 text-xs">₱' + price.toFixed(2) + ' each</div></div>'
+                      + '<div class="flex items-center gap-1 ml-2">'
+                      + '<button type="button" onclick="changeQty(\'' + name + '\', -1)" class="w-6 h-6 bg-white border rounded text-gray-600 hover:bg-red-50 hover:text-red-500 text-xs font-bold">&#8722;</button>'
+                      + '<span class="w-6 text-center font-bold text-brand">' + qty + '</span>'
+                      + '<button type="button" onclick="changeQty(\'' + name + '\', 1)" class="w-6 h-6 bg-white border rounded text-gray-600 hover:bg-green-50 hover:text-green-600 text-xs font-bold">+</button>'
+                      + '</div>'
+                      + '<div class="ml-2 font-bold text-gray-700 w-16 text-right">₱' + subtotal.toFixed(2) + '</div>'
+                      + '<button type="button" onclick="removeFromCart(\'' + name + '\')" class="ml-2 text-red-400 hover:text-red-600 text-xs"><i class="fas fa-times"></i></button>'
+                      + '</div>';
+            });
+
+            cartItemsEl.innerHTML = html;
+            cartCountEl.innerText = itemCount;
+
+            // Keep the "Unit Price" label meaningful — show last added item price, or just total
+            document.getElementById('unit-price').innerText = keys.length === 1
+                ? '₱' + cart[keys[0]].price.toFixed(2)
+                : keys.length + ' item type(s)';
+
+            const totals = computeOrderTotals();
+            document.getElementById('gross-amount').innerText = '₱' + totals.gross.toFixed(2);
+            document.getElementById('total-price').innerText  = '₱' + totals.total.toFixed(2);
+
+            const discountRow   = document.getElementById('discount-row');
+            const vatRow        = document.getElementById('vat-row');
+            const vatExemptRow  = document.getElementById('vat-exempt-row');
+            if (currentDiscountType === 'senior' || currentDiscountType === 'pwd') {
+                discountRow.classList.remove('hidden');
+                document.getElementById('discount-amount-display').innerText = '-₱' + totals.discount.toFixed(2);
+                vatRow.classList.add('hidden');
+                vatExemptRow.classList.remove('hidden');
+            } else {
+                discountRow.classList.add('hidden');
+                vatRow.classList.remove('hidden');
+                vatExemptRow.classList.add('hidden');
+                document.getElementById('vat-amount-display').innerText = '₱' + totals.vat.toFixed(2);
+            }
+
+            window.cartTotal = totals.total;
+            calculateChange();
+        }
+
+        // ── Cash Change Calculation ──────────────────────────────────
+        function calculateChange() {
+            const total = window.cartTotal || 0;
+            const received = parseFloat(document.getElementById('cash-received').value) || 0;
+            let change = received - total;
+            if (change < 0) change = 0;
+
+            document.getElementById('cash-change').innerText = '₱' + change.toFixed(2);
+            document.getElementById('form-amount-received').value = received.toFixed(2);
+            document.getElementById('form-change-amount').value = change.toFixed(2);
+        }
+
+        // ── Payment tab switching ────────────────────────────────────
+        function switchTab(tab) {
+            const tabCash  = document.getElementById('tab-cash');
+            const tabGcash = document.getElementById('tab-gcash');
+            if (tab === 'cash') {
+                document.getElementById('cash-section').classList.remove('hidden');
+                document.getElementById('gcash-section').classList.add('hidden');
+                tabCash.classList.add('active');
+                tabGcash.classList.remove('active');
+                tabGcash.classList.add('text-gray-600');
+            } else {
+                document.getElementById('cash-section').classList.add('hidden');
+                document.getElementById('gcash-section').classList.remove('hidden');
+                tabGcash.classList.add('active');
+                tabGcash.classList.remove('text-gray-600');
+                tabCash.classList.remove('active');
+            }
+        }
+
+        // ── Validate & pack form ─────────────────────────────────────
+        function prepareOrder(method) {
+            const customer = document.getElementById('customer-name').value.trim();
+            if (!customer) { alert("Please enter a customer name!"); return false; }
+            if (Object.keys(cart).length === 0) { alert("Please add at least one item!"); return false; }
+
+            let discName = '', discId = '';
+            if (currentDiscountType === 'senior' || currentDiscountType === 'pwd') {
+                discName = document.getElementById('discount-name').value.trim();
+                discId   = document.getElementById('discount-id').value.trim();
+                if (!discName || !discId) {
+                    alert((currentDiscountType === 'senior' ? 'Senior Citizen' : 'PWD') + " discount requires both Name and ID Number!");
+                    return false;
+                }
+            }
+
+            const totals = computeOrderTotals();
+
+            if (method === 'cash') {
+                const received = parseFloat(document.getElementById('cash-received').value) || 0;
+                if (received < totals.total && totals.total > 0) {
+                    alert("Amount received (₱" + received.toFixed(2) + ") is less than the total price (₱" + totals.total.toFixed(2) + ")!");
+                    return false;
+                }
+            }
+
+            const cartArray = Object.keys(cart).map(function(name) {
+                return { item: name, quantity: cart[name].qty };
+            });
+            document.getElementById('form-customer').value       = customer;
+            document.getElementById('form-payment-method').value = method;
+            document.getElementById('form-cart').value           = JSON.stringify(cartArray);
+            document.getElementById('form-discount-type').value  = currentDiscountType;
+            document.getElementById('form-discount-name').value  = discName;
+            document.getElementById('form-discount-id').value    = discId;
+            return true;
+        }
+
+        // ── GCash modal ──────────────────────────────────────────────
+        function openGcashModal() {
+            const customer = document.getElementById('customer-name').value.trim();
+            if (!customer) { alert("Please enter a customer name!"); return; }
+            if (Object.keys(cart).length === 0) { alert("Please add at least one item!"); return; }
+            if (currentDiscountType === 'senior' || currentDiscountType === 'pwd') {
+                const discName = document.getElementById('discount-name').value.trim();
+                const discId   = document.getElementById('discount-id').value.trim();
+                if (!discName || !discId) {
+                    alert((currentDiscountType === 'senior' ? 'Senior Citizen' : 'PWD') + " discount requires both Name and ID Number!");
+                    return;
+                }
+            }
+
+            let itemsHtml = '';
+            Object.keys(cart).forEach(function(name) {
+                const price = cart[name].price, qty = cart[name].qty;
+                itemsHtml += '<div class="flex justify-between"><span>' + name + ' &times;' + qty + '</span>'
+                           + '<span class="font-medium">₱' + (price * qty).toFixed(2) + '</span></div>';
+            });
+
+            const totals = computeOrderTotals();
+            if (totals.discount > 0) {
+                itemsHtml += '<div class="flex justify-between text-blue-600"><span>Senior/PWD Discount (20%)</span>'
+                           + '<span>-₱' + totals.discount.toFixed(2) + '</span></div>';
+            }
+
+            document.getElementById('modal-customer').innerText   = customer;
+            document.getElementById('modal-items-list').innerHTML = itemsHtml;
+            document.getElementById('modal-total').innerText      = '₱' + totals.total.toFixed(2);
+            document.getElementById('gcash-modal').classList.add('open');
+        }
+
+        function closeGcashModal() {
+            document.getElementById('gcash-modal').classList.remove('open');
+        }
+
+        function confirmGcashPayment() {
+            if (prepareOrder('gcash')) {
+                closeGcashModal();
+                document.getElementById('orderForm').submit();
+            }
+        }
+
+        document.getElementById('gcash-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeGcashModal();
+        });
+    </script>
+
+    {% include '_chatbot.html' %}
+</body>
+</html>

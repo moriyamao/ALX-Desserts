@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALX Desserts - Inventory</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8fafc; font-family: 'Inter', sans-serif; }
+        .text-brand { color: #d94f2a; }
+        .bg-brand { background-color: #d94f2a; }
+        .bg-brand:hover { background-color: #b03b1a; }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Navbar -->
+    <nav class="bg-white shadow-sm border-b px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+        <div class="text-2xl font-bold text-brand flex items-center">
+            <img src="/static/images/alx_logo.png" alt="ALX Desserts Logo" class="h-10 w-10 mr-2 rounded-full object-cover"> ALX Desserts Admin
+        </div>
+        <div class="space-x-2">
+            <a href="/" class="text-gray-600 hover:text-brand hover:bg-orange-50 px-4 py-2 rounded-lg font-medium transition"><i class="fas fa-cash-register mr-1"></i> Point of Sale</a>
+            <a href="/inventory" class="bg-brand text-white px-4 py-2 rounded-lg font-medium shadow-sm hover:shadow transition"><i class="fas fa-boxes mr-1"></i> Inventory</a>
+            <a href="/sales" class="text-gray-600 hover:text-brand hover:bg-orange-50 px-4 py-2 rounded-lg font-medium transition"><i class="fas fa-chart-line mr-1"></i> Reports</a>
+            <a href="/archive" class="text-gray-600 hover:text-brand hover:bg-orange-50 px-4 py-2 rounded-lg font-medium transition"><i class="fas fa-archive mr-1"></i> Archive</a>
+            <a href="/logout" class="text-red-500 hover:bg-red-50 px-4 py-2 rounded-lg font-medium transition ml-4 border border-red-200"><i class="fas fa-sign-out-alt mr-1"></i> Logout</a>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto p-6">
+
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-800"><i class="fas fa-box-open text-brand mr-2"></i> Inventory Management</h1>
+            <button onclick="document.getElementById('addModal').classList.remove('hidden')" class="bg-brand text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-orange-700 transition">
+                <i class="fas fa-plus mr-1"></i> Add New Product
+            </button>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="p-3 rounded-lg mb-6 text-sm {% if category == 'success' %}bg-green-50 text-green-700 border border-green-200{% else %}bg-red-50 text-red-700 border border-red-200{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- ── Low Stock Warning Banner ──────────────────────────────────────
+             Shows when one or more items have quantity <= LOW_STOCK_THRESHOLD.
+             The low_stock_items list and low_stock_threshold are passed from
+             the inventory_page() route in app.py.
+        ──────────────────────────────────────────────────────────────────── -->
+        {% if low_stock_items %}
+        <div class="bg-black border-2 border-orange-500 rounded-xl p-4 mb-6 flex items-start gap-3 shadow-lg">
+            <div class="text-orange-500 text-3xl mt-0.5 animate-pulse">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div class="w-full">
+                <p class="font-black text-orange-500 text-base uppercase tracking-wide">
+                    ⚠ Low Stock Warning — {{ low_stock_items|length }} item(s) running low
+                    <span class="font-bold text-orange-300 normal-case text-sm ml-1">(threshold: {{ low_stock_threshold }} units)</span>
+                </p>
+                <div class="flex flex-wrap gap-2 mt-2">
+                    {% for item in low_stock_items %}
+                    <span class="bg-orange-500 text-black border border-orange-400 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wide">
+                        <i class="fas fa-box mr-1"></i>{{ item }}
+                        — {{ inventory[item].quantity }} left
+                    </span>
+                    {% endfor %}
+                </div>
+                <p class="text-xs text-orange-300 mt-2 font-bold">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Click <strong class="text-orange-500">Add New Product</strong> or the edit button to restock these items.
+                </p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Inventory Grid -->
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 border-b">
+                        <th class="p-4 font-semibold text-gray-600 w-16">Image</th>
+                        <th class="p-4 font-semibold text-gray-600">Item Name</th>
+                        <th class="p-4 font-semibold text-gray-600 text-center">Stock</th>
+                        <th class="p-4 font-semibold text-gray-600 text-right">Cost</th>
+                        <th class="p-4 font-semibold text-gray-600 text-right">Selling Price</th>
+                        <th class="p-4 font-semibold text-gray-600 text-right">Margin</th>
+                        <th class="p-4 font-semibold text-gray-600 text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item, data in inventory.items() %}
+                    <tr class="border-b hover:bg-gray-50 transition">
+                        <td class="p-3">
+                            <div class="w-12 h-12 rounded bg-gray-100 flex items-center justify-center overflow-hidden border">
+                                {% if data.image and data.image != 'default.png' %}
+                                    <img src="{{ url_for('static', filename='images/' + data.image) }}" alt="{{ item }}" class="w-full h-full object-cover">
+                                {% else %}
+                                    <i class="fas fa-image text-gray-300"></i>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="p-4 font-medium text-gray-800">{{ item }}</td>
+                        <td class="p-4 text-center">
+                            <span class="px-2 py-1 rounded-full text-sm font-bold {% if data.quantity <= 5 %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">
+                                {{ data.quantity }}
+                            </span>
+                        </td>
+                        <td class="p-4 text-right text-gray-500">₱{{ "%.2f"|format(data.cost) }}</td>
+                        <td class="p-4 text-right font-semibold text-gray-800">₱{{ "%.2f"|format(data.price) }}</td>
+                        <td class="p-4 text-right text-green-600 font-medium">₱{{ "%.2f"|format(data.price - data.cost) }}</td>
+                        <td class="p-4 text-center space-x-2">
+                            <button onclick="editItem('{{ item }}', {{ data.quantity }}, {{ data.cost }}, {{ data.price }})" class="text-blue-500 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <a href="/delete_inventory/{{ item }}" onclick="return confirm('Are you sure you want to delete {{ item }}?')" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition" title="Delete">
+                                <i class="fas fa-trash-alt"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not inventory %}
+                    <tr><td colspan="7" class="p-10 text-center text-gray-500">No inventory found. Click 'Add New Product' to start.</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Add/Edit Modal -->
+        <div id="addModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+            <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold" id="modalTitle">Add Product / Update Stock</h3>
+                    <button onclick="document.getElementById('addModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
+                </div>
+
+                <form method="POST" action="/update_inventory" enctype="multipart/form-data" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Item Name</label>
+                        <input type="text" name="item_name" id="form-item-name" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-brand focus:outline-none" required>
+                        <p class="text-xs text-gray-500 mt-1">If the name already exists, it will update the existing item.</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">New Total Stock Qty</label>
+                            <input type="number" name="quantity" id="form-qty" min="0" value="1" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-brand focus:outline-none" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Cost Price (₱)</label>
+                            <input type="number" name="cost" id="form-cost" step="0.01" min="0" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-brand focus:outline-none" required>
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Selling Price (₱)</label>
+                            <input type="number" name="price" id="form-price" step="0.01" min="0" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-brand focus:outline-none" required>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Product Image</label>
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 transition cursor-pointer relative">
+                            <input type="file" name="image" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                            <i class="fas fa-cloud-upload-alt text-2xl text-gray-400 mb-2"></i>
+                            <p class="text-sm text-gray-600">Click or drag image here</p>
+                            <p class="text-xs text-gray-400 mt-1">PNG, JPG up to 5MB. Leave empty to keep existing.</p>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 flex space-x-3">
+                        <button type="button" onclick="document.getElementById('addModal').classList.add('hidden')" class="flex-1 bg-gray-100 text-gray-700 font-bold py-2 rounded-lg hover:bg-gray-200 transition">Cancel</button>
+                        <button type="submit" class="flex-1 bg-brand text-white font-bold py-2 rounded-lg hover:bg-orange-700 transition">Save Product</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        function editItem(name, qty, cost, price) {
+            document.getElementById('modalTitle').innerText = 'Edit Product';
+            document.getElementById('form-item-name').value = name;
+            document.getElementById('form-item-name').readOnly = true; // prevent changing name of existing to avoid dupes/mess
+            document.getElementById('form-item-name').classList.add('bg-gray-100');
+            document.getElementById('form-qty').value = qty;
+            document.getElementById('form-cost').value = cost;
+            document.getElementById('form-price').value = price;
+            document.getElementById('addModal').classList.remove('hidden');
+        }
+
+        // Reset form when clicking add new
+        document.querySelector('button[onclick*="addModal"]').addEventListener('click', function() {
+            document.getElementById('modalTitle').innerText = 'Add New Product';
+            document.getElementById('form-item-name').value = '';
+            document.getElementById('form-item-name').readOnly = false;
+            document.getElementById('form-item-name').classList.remove('bg-gray-100');
+            document.getElementById('form-qty').value = '1';
+            document.getElementById('form-cost').value = '';
+            document.getElementById('form-price').value = '';
+        });
+    </script>
+
+    {% include '_chatbot.html' %}
+</body>
+</html>

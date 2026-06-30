@@ -1,0 +1,8 @@
+OrderID,Customer,Item,Quantity,Price,Profit,Total,PaymentMethod,DateTime
+E7A320BF,aron,Yema Cake,1,100.0,35.0,100.0,gcash,2026-06-01 13:10:19
+
+TOTAL,,,1,,35.0,100.0,,
+
+PAYMENT SUMMARY,,,,,,,,
+Cash Sales,,,,,,0,cash,
+GCash Sales,,,,,,100.0,gcash,
