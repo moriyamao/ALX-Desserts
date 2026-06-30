@@ -3,244 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Receipt #{{ order_id }} — ALX Desserts</title>
+    <title>ALX Desserts - Login</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f8fafc; font-family: 'Inter', sans-serif; }
+        body { background-color: #fff6f0; }
         .text-brand { color: #d94f2a; }
-        .bg-brand   { background-color: #d94f2a; }
-
-        /* ── Receipt paper look ─────────────────────────────────────────── */
-        .receipt-paper {
-            background: #fff;
-            max-width: 420px;
-            margin: 40px auto;
-            border-radius: 4px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.10);
-            /* Jagged top/bottom edge like a real receipt */
-            position: relative;
-        }
-        /* Zigzag bottom edge */
-        .receipt-paper::after {
-            content: '';
-            display: block;
-            height: 16px;
-            background:
-                linear-gradient(135deg, #f8fafc 33.33%, transparent 33.33%) 0 0,
-                linear-gradient(225deg, #f8fafc 33.33%, transparent 33.33%) 0 0;
-            background-size: 16px 16px;
-            background-color: #fff;
-            position: absolute;
-            bottom: -16px;
-            left: 0; right: 0;
-        }
-
-        /* ── Print styles: hide navbar & buttons, show only receipt ───── */
-        @media print {
-            body { background: white !important; }
-            .no-print { display: none !important; }
-            .receipt-paper {
-                box-shadow: none !important;
-                max-width: 100% !important;
-                margin: 0 !important;
-                border-radius: 0 !important;
-            }
-            .receipt-paper::after { display: none; }
-        }
+        .bg-brand { background-color: #d94f2a; }
+        .bg-brand:hover { background-color: #b03b1a; }
     </style>
 </head>
-<body class="text-gray-800">
+<body class="flex items-center justify-center h-screen">
+    <div class="bg-white p-8 rounded-xl shadow-lg w-96 text-center">
+        <h1 class="text-3xl font-bold text-brand mb-6"><img src="/static/images/alx_logo.png" alt="ALX Desserts Logo" class="h-12 w-12 mx-auto mb-2 rounded-full object-cover block">ALX Desserts</h1>
+        <h2 class="text-xl font-semibold mb-4 text-gray-700">Admin Login</h2>
 
-    <!-- Navbar (hidden on print) -->
-    <nav class="bg-white shadow-sm border-b px-6 py-4 flex justify-between items-center sticky top-0 z-50 no-print">
-        <div class="text-2xl font-bold text-brand flex items-center">
-            <img src="/static/images/alx_logo.png" alt="ALX Desserts Logo" class="h-10 w-10 mr-2 rounded-full object-cover"> ALX Desserts Admin
-        </div>
-        <div class="space-x-2">
-            <a href="/" class="text-gray-600 hover:text-brand hover:bg-orange-50 px-4 py-2 rounded-lg font-medium transition">
-                <i class="fas fa-cash-register mr-1"></i> Point of Sale
-            </a>
-            <a href="/sales" class="text-gray-600 hover:text-brand hover:bg-orange-50 px-4 py-2 rounded-lg font-medium transition">
-                <i class="fas fa-chart-line mr-1"></i> Reports
-            </a>
-        </div>
-    </nav>
-
-    <!-- Action Buttons (hidden on print) -->
-    <div class="max-w-xl mx-auto px-4 pt-6 pb-2 flex gap-3 no-print">
-        <button onclick="window.print()"
-                class="flex-1 bg-brand text-white font-bold py-3 rounded-lg hover:bg-orange-700 transition flex items-center justify-center gap-2 shadow">
-            <i class="fas fa-print"></i> Print Receipt
-        </button>
-        <a href="/"
-           class="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-lg hover:bg-gray-200 transition flex items-center justify-center gap-2">
-            <i class="fas fa-plus-circle"></i> New Order
-        </a>
-        <a href="/sales"
-           class="flex-1 bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2">
-            <i class="fas fa-chart-bar"></i> View Sales
-        </a>
-    </div>
-
-    <!-- ─── Receipt Paper ─────────────────────────────────────────────────── -->
-    <div class="receipt-paper px-8 pt-8 pb-10">
-
-        <!-- Store Header -->
-        <div class="text-center mb-6 border-b-2 border-dashed border-gray-200 pb-6">
-            <div class="text-3xl mb-1">🍰</div>
-            <h1 class="text-2xl font-extrabold tracking-widest text-brand uppercase">ALX Desserts</h1>
-            <p class="text-xs text-gray-400 tracking-wider mt-1">OFFICIAL ORDER RECEIPT</p>
-        </div>
-
-        <!-- Order Meta -->
-        <div class="space-y-1 mb-5 text-sm">
-            <div class="flex justify-between">
-                <span class="text-gray-500 font-medium">Order ID</span>
-                <span class="font-bold font-mono text-gray-800">#{{ order_id }}</span>
-            </div>
-            <div class="flex justify-between">
-                <span class="text-gray-500 font-medium">Customer</span>
-                <span class="font-semibold text-gray-800">{{ customer }}</span>
-            </div>
-            <div class="flex justify-between">
-                <span class="text-gray-500 font-medium">Date &amp; Time</span>
-                <span class="text-gray-700">
-                    {% if dt_str %}
-                        {{ dt_str }}
-                    {% else %}
-                        <em class="text-gray-400">—</em>
-                    {% endif %}
-                </span>
-            </div>
-            <div class="flex justify-between">
-                <span class="text-gray-500 font-medium">Payment</span>
-                <span class="font-semibold
-                    {% if payment_method == 'gcash' %}text-blue-600{% else %}text-green-600{% endif %}">
-                    {% if payment_method == 'gcash' %}
-                        <i class="fas fa-mobile-alt mr-1"></i>GCash
-                    {% else %}
-                        <i class="fas fa-money-bill-wave mr-1"></i>Cash
-                    {% endif %}
-                </span>
-            </div>
-            {% if discount_type in ('senior', 'pwd') %}
-            <div class="flex justify-between">
-                <span class="text-gray-500 font-medium">Customer Type</span>
-                <span class="font-semibold text-blue-600">
-                    {% if discount_type == 'senior' %}
-                        <i class="fas fa-user-clock mr-1"></i>Senior Citizen
-                    {% else %}
-                        <i class="fas fa-wheelchair mr-1"></i>PWD
-                    {% endif %}
-                </span>
-            </div>
-            <div class="flex justify-between">
-                <span class="text-gray-500 font-medium">ID Name</span>
-                <span class="text-gray-700">{{ discount_name }}</span>
-            </div>
-            <div class="flex justify-between">
-                <span class="text-gray-500 font-medium">ID Number</span>
-                <span class="text-gray-700 font-mono">{{ discount_id }}</span>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Divider -->
-        <div class="border-t-2 border-dashed border-gray-200 my-4"></div>
-
-        <!-- Items Table Header -->
-        <div class="grid grid-cols-12 text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-            <div class="col-span-5">Item</div>
-            <div class="col-span-2 text-center">Qty</div>
-            <div class="col-span-2 text-right">Price</div>
-            <div class="col-span-3 text-right">Subtotal</div>
-        </div>
-
-        <!-- Items Rows -->
-        {% for line in receipt_orders %}
-        <div class="grid grid-cols-12 text-sm py-2 border-b border-gray-100 items-center">
-            <div class="col-span-5 font-medium text-gray-800 truncate" title="{{ line.item }}">{{ line.item }}</div>
-            <div class="col-span-2 text-center text-gray-600">{{ line.quantity }}</div>
-            <div class="col-span-2 text-right text-gray-500">₱{{ "%.2f"|format(line.price) }}</div>
-            <div class="col-span-3 text-right font-semibold text-gray-800">₱{{ "%.2f"|format(line.total) }}</div>
-        </div>
-        {% endfor %}
-
-        <!-- Divider -->
-        <div class="border-t-2 border-dashed border-gray-300 my-4"></div>
-
-        <!-- Totals -->
-        <div class="space-y-2 text-sm mb-2">
-            <div class="flex justify-between text-gray-600">
-                <span>Gross Amount</span>
-                <span>₱{{ "%.2f"|format(receipt_gross) }}</span>
-            </div>
-            {% if discount_type in ('senior', 'pwd') %}
-            <div class="flex justify-between text-blue-600">
-                <span>Senior/PWD Discount (20%)</span>
-                <span>-₱{{ "%.2f"|format(receipt_discount) }}</span>
-            </div>
-            <div class="flex justify-between text-green-600 text-xs">
-                <span><i class="fas fa-check-circle mr-1"></i>VAT-Exempt</span>
-                <span>₱0.00</span>
-            </div>
-            {% else %}
-            <div class="flex justify-between text-gray-400 text-xs">
-                <span>VAT (12%) included in price</span>
-                <span>₱{{ "%.2f"|format(receipt_vat) }}</span>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Grand Total -->
-        <div class="flex justify-between items-center bg-orange-50 rounded-lg px-4 py-3 mt-3 border border-orange-200">
-            <span class="text-lg font-extrabold text-brand">TOTAL PAID</span>
-            <span class="text-2xl font-extrabold text-brand">₱{{ "%.2f"|format(receipt_total) }}</span>
-        </div>
-
-        <!-- Cash Tendered & Change (Cash payments only) -->
-        {% if payment_method != 'gcash' %}
-        <div class="mt-3 space-y-1 text-sm bg-green-50 border border-green-200 rounded-lg px-4 py-3">
-            <div class="flex justify-between text-gray-600">
-                <span class="flex items-center gap-1">
-                    <i class="fas fa-hand-holding-usd text-green-500"></i> Cash Tendered
-                </span>
-                <span class="font-semibold text-gray-800">
-                    {% if amount_received and amount_received|float > 0 %}
-                        ₱{{ "%.2f"|format(amount_received|float) }}
-                    {% else %}
-                        <em class="text-gray-400 font-normal">—</em>
-                    {% endif %}
-                </span>
-            </div>
-            <div class="flex justify-between font-bold text-green-700 border-t border-green-200 pt-2 mt-1">
-                <span class="flex items-center gap-1">
-                    <i class="fas fa-coins text-green-500"></i> Change
-                </span>
-                <span class="text-lg">
-                    {% if change_amount and change_amount|float > 0 %}
-                        ₱{{ "%.2f"|format(change_amount|float) }}
-                    {% else %}
-                        ₱0.00
-                    {% endif %}
-                </span>
-            </div>
-        </div>
+        {% if error %}
+            <div class="bg-red-100 text-red-700 p-2 rounded mb-4 text-sm">{{ error }}</div>
         {% endif %}
 
-        <!-- Footer -->
-        <div class="text-center mt-8 pt-4 border-t-2 border-dashed border-gray-200">
-            <p class="text-sm font-semibold text-gray-600">Thank you for your purchase! 🍰</p>
-            <p class="text-xs text-gray-400 mt-1">Please come again.</p>
-            <p class="text-xs text-gray-300 mt-3 font-mono">* * * * * * * * * * * * * *</p>
-        </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="p-2 rounded mb-4 text-sm {% if category == 'success' %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
 
+        <form action="/login" method="post" class="space-y-4 text-left">
+            <div>
+                <label class="block text-gray-700 font-bold mb-1">Username</label>
+                <input type="text" name="username" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="Username" required>
+            </div>
+            <div>
+                <label class="block text-gray-700 font-bold mb-1">Password</label>
+                <input type="password" name="password" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="Password" required>
+            </div>
+            <button type="submit" class="w-full bg-brand text-white font-bold py-2 rounded-lg transition duration-200">
+                Login <i class="fas fa-sign-in-alt ml-1"></i>
+            </button>
+        </form>
     </div>
-    <!-- End Receipt Paper -->
-
-    <!-- Bottom spacing for non-print -->
-    <div class="h-16 no-print"></div>
-
 </body>
 </html>
